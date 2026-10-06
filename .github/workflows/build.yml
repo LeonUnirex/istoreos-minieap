@@ -1,39 +1,83 @@
-name: Build MiniEAP for iStoreOS
+name: Build MiniEAP for iStoreOS 24.10.8
 
 on:
   workflow_dispatch:
 
 jobs:
   build:
-    name: OpenWrt 24.10 x86_64
+    name: x86_64 / OpenWrt 24.10.8
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build MiniEAP packages
-        uses: openwrt/gh-action-sdk@v9
-        env:
-          ARCH: x86_64-openwrt-24.10
-          PACKAGES: minieap luci-proto-minieap
-          FEEDNAME: minieap
-          NO_REFRESH_CHECK: true
-        with:
-          package: |
-            https://github.com/ysc3839/openwrt-minieap.git
-            https://github.com/ysc3839/luci-proto-minieap.git
-
-      - name: Collect IPK packages
+      - name: Add MiniEAP packages
         run: |
+          set -eux
+
+          rm -rf minieap luci-proto-minieap
+
+          git clone --depth=1 \
+            https://github.com/ysc3839/openwrt-minieap.git \
+            minieap
+
+          git clone --depth=1 \
+            https://github.com/ysc3839/luci-proto-minieap.git \
+            luci-proto-minieap
+
+          test -f minieap/Makefile
+          test -f luci-proto-minieap/Makefile
+
+          echo "=== Packages prepared ==="
+          ls -la minieap/Makefile
+          ls -la luci-proto-minieap/Makefile
+
+      - name: Build MiniEAP
+        uses: openwrt/gh-action-sdk@main
+        env:
+          ARCH: x86_64-24.10.8
+          PACKAGES: minieap luci-proto-minieap
+          BUILD_LOG: 1
+          V: s
+
+      - name: Show generated IPKs
+        if: always()
+        run: |
+          echo "=== Generated IPK files ==="
+          find . -type f -name '*.ipk' -print || true
+
+      - name: Collect MiniEAP IPKs
+        if: success()
+        run: |
+          set -eux
+
           mkdir -p output
-          find . -type f -name '*.ipk' -exec cp -v {} output/ \;
-          echo "===== Generated packages ====="
+
+          find . -type f -name 'minieap_*.ipk' \
+            -exec cp -v {} output/ \;
+
+          find . -type f -name 'luci-proto-minieap_*.ipk' \
+            -exec cp -v {} output/ \;
+
+          echo "=== Final packages ==="
           ls -lah output/
 
-      - name: Upload IPK packages
+          test -n "$(find output -maxdepth 1 -name 'minieap_*.ipk' -print -quit)"
+          test -n "$(find output -maxdepth 1 -name 'luci-proto-minieap_*.ipk' -print -quit)"
+
+      - name: Upload MiniEAP IPKs
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: istoreos-24.10-x86_64-minieap
+          name: MiniEAP-iStoreOS-24.10.8-x86_64
           path: output/*.ipk
           if-no-files-found: error
+
+      - name: Upload build logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: MiniEAP-build-logs
+          path: logs/
+          if-no-files-found: ignore
