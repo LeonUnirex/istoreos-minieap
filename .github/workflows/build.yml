@@ -15,7 +15,7 @@ jobs:
       - name: Build MiniEAP packages
         uses: openwrt/gh-action-sdk@v9
         env:
-          ARCH: x86-64
+          ARCH: x86_64-openwrt-24.10
           PACKAGES: minieap luci-proto-minieap
           FEEDNAME: minieap
           NO_REFRESH_CHECK: true
