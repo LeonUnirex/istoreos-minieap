@@ -1,0 +1,39 @@
+name: Build MiniEAP for iStoreOS
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: OpenWrt 24.10 x86_64
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build MiniEAP packages
+        uses: openwrt/gh-action-sdk@v9
+        env:
+          ARCH: x86-64
+          PACKAGES: minieap luci-proto-minieap
+          FEEDNAME: minieap
+          NO_REFRESH_CHECK: true
+        with:
+          package: |
+            https://github.com/ysc3839/openwrt-minieap.git
+            https://github.com/ysc3839/luci-proto-minieap.git
+
+      - name: Collect IPK packages
+        run: |
+          mkdir -p output
+          find . -type f -name '*.ipk' -exec cp -v {} output/ \;
+          echo "===== Generated packages ====="
+          ls -lah output/
+
+      - name: Upload IPK packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: istoreos-24.10-x86_64-minieap
+          path: output/*.ipk
+          if-no-files-found: error
